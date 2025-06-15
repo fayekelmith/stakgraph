@@ -838,6 +838,54 @@ impl Neo4jGraph {
 
         Ok(())
     }
+
+    pub async fn process_endpoint_groups_async(
+        &mut self,
+        eg: Vec<NodeData>,
+        lang: &Lang,
+    ) -> Result<()> {
+        let mut groups_with_endpoints = Vec::new();
+
+        for group in &eg {
+            if let Some(group_function_name) = group.meta.get("group") {
+                let group_functions = self
+                    .find_nodes_by_name_async(NodeType::Function, group_function_name)
+                    .await;
+
+                if let Some(group_function) = group_functions.first() {
+                    let mut all_endpoints = Vec::new();
+
+                    for finder_query in lang.lang().endpoint_finders() {
+                        if let Ok(endpoints) = lang.get_query_opt::<Self>(
+                            Some(finder_query),
+                            &group_function.body,
+                            &group_function.file,
+                            NodeType::Endpoint,
+                        ) {
+                            all_endpoints.extend(endpoints);
+                        }
+                    }
+
+                    if !all_endpoints.is_empty() {
+                        groups_with_endpoints.push((group.clone(), all_endpoints));
+                    }
+                }
+            }
+        }
+
+        if !groups_with_endpoints.is_empty() {
+            self.execute_with_transaction(|txn_manager| {
+                let queries = process_endpoint_groups_queries(&groups_with_endpoints);
+                for query in queries {
+                    txn_manager.add_query(query);
+                }
+                Ok(())
+            })
+            .await?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Graph for Neo4jGraph {
@@ -915,8 +963,14 @@ impl Graph for Neo4jGraph {
                 .await
         })
     }
-    fn process_endpoint_groups(&mut self, _eg: Vec<NodeData>, _lang: &Lang) -> Result<()> {
-        todo!("To be implemented in Neo4jGraph");
+
+    fn process_endpoint_groups(&mut self, eg: Vec<NodeData>, lang: &Lang) -> Result<()> {
+        sync_fn(|| async {
+            self.process_endpoint_groups_async(eg, lang)
+                .await
+                .unwrap_or_default()
+        });
+        Ok(())
     }
     fn class_inherits(&mut self) {
         sync_fn(|| async { self.class_inherits_async().await.unwrap_or_default() });

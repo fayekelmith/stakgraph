@@ -852,3 +852,75 @@ pub fn calculate_token_count(body: &str) -> Result<i64> {
     let token_count = bpe.encode_with_special_tokens(body).len() as i64;
     Ok(token_count)
 }
+// Add these functions to neo4j_utils.rs
+
+pub fn find_group_function_query(group_function_name: &str) -> (String, BoltMap) {
+    let mut params = BoltMap::new();
+    boltmap_insert_str(&mut params, "group_function_name", group_function_name);
+
+    let query = "MATCH (n:Function) 
+                 WHERE n.name = $group_function_name 
+                 RETURN n";
+
+    (query.to_string(), params)
+}
+
+pub fn update_endpoint_name_query(
+    old_name: &str,
+    file: &str,
+    new_name: &str,
+) -> (String, BoltMap) {
+    let mut params = BoltMap::new();
+    boltmap_insert_str(&mut params, "old_name", old_name);
+    boltmap_insert_str(&mut params, "file", file);
+    boltmap_insert_str(&mut params, "new_name", new_name);
+
+    let query = "MATCH (n:Endpoint {name: $old_name, file: $file})
+                 SET n.name = $new_name
+                 RETURN n";
+
+    (query.to_string(), params)
+}
+
+pub fn update_endpoint_relationships_query(
+    old_name: &str,
+    file: &str,
+    new_name: &str,
+) -> (String, BoltMap) {
+    let mut params = BoltMap::new();
+    boltmap_insert_str(&mut params, "old_name", old_name);
+    boltmap_insert_str(&mut params, "file", file);
+    boltmap_insert_str(&mut params, "new_name", new_name);
+
+    let query = "MATCH (source:Endpoint {{name: $old_name, file: $file}})-[r]->(target)
+                SET source.name = $new_name
+                RETURN r";
+
+    (query.to_string(), params)
+}
+
+pub fn process_endpoint_groups_queries(
+    groups_with_endpoints: &[(NodeData, Vec<NodeData>)]
+) -> Vec<(String, BoltMap)> {
+    let mut queries = Vec::new();
+
+    for (group, endpoints) in groups_with_endpoints {
+        for endpoint in endpoints {
+            let new_name = format!("{}{}", group.name, endpoint.name);
+            
+            queries.push(update_endpoint_name_query(
+                &endpoint.name,
+                &endpoint.file,
+                &new_name,
+            ));
+            
+            queries.push(update_endpoint_relationships_query(
+                &endpoint.name,
+                &endpoint.file,
+                &new_name,
+            ));
+        }
+    }
+
+    queries
+}

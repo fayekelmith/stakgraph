@@ -75,6 +75,7 @@ jobs:
       - name: Start Rust Standalone Server
         run: |
           export TEST_REF_ID=1
+          export USE_LSP=0
           cargo run --bin standalone --features neo4j > standalone.log 2>&1 &
           echo $! > standalone.pid
 
@@ -120,6 +121,8 @@ jobs:
       - name: Compare actual and expected output
         working-directory: ./mcp
         run: |
+          cat ./testing/actual-map-response.html
+
           ACTUAL_MAP_FILE="./testing/actual-map-response.html"
           EXPECTED_MAP_FILE="./testing/map.html"
 

@@ -23,6 +23,20 @@ impl Stack for ReactTs {
         parser.set_language(&self.0)?;
         Ok(parser.parse(code, None).context("failed to parse")?)
     }
+    fn classify_test_kind(&self, file: &str, name: &str, body: &str) -> NodeType {
+        let f = file.to_lowercase();
+        let mut tt = if f.contains("/e2e/") { NodeType::E2eTest } else if f.contains("/integration/") { NodeType::IntegrationTest } else if f.contains("/unit/") { NodeType::UnitTest } else { NodeType::UnitTest };
+        let lname = name.to_lowercase();
+        if lname.contains("e2e") { tt = NodeType::E2eTest; }
+        else if tt != NodeType::E2eTest && (lname.contains("integration") || lname.contains(" api") || lname.contains("api ")) { tt = NodeType::IntegrationTest; }
+        if matches!(tt, NodeType::UnitTest) {
+            if body.contains("page.") || body.contains("cy.") || body.contains("browser.") { tt = NodeType::E2eTest; } else {
+                let fetches = body.matches("fetch(").count();
+                if fetches > 0 || body.contains("axios(") { tt = NodeType::IntegrationTest; }
+            }
+        }
+        tt
+    }
     fn lib_query(&self) -> Option<String> {
         Some(format!(
             r#"(pair

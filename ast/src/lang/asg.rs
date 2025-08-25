@@ -184,6 +184,10 @@ impl NodeData {
     pub fn add_component(&mut self) {
         self.meta.insert("component".to_string(), "true".to_string());
     }
+    pub fn add_test_kind(&mut self, test_kind: &str) {
+        self.meta
+            .insert("test_kind".to_string(), test_kind.to_string());
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

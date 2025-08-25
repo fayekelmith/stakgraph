@@ -696,15 +696,10 @@ impl Lang {
             }
             Ok(())
         })?;
-       
-        let lname = test.name.to_lowercase();
-        let mut kind = "unit";
-        if lname.contains("e2e") {
-            kind = "e2e";
-        } else if lname.contains("integration") {
-            kind = "integration";
-        }
-        test.meta.insert("test_kind".into(), kind.into());
+    let tt = self.lang.classify_test_kind(file, &test.name, &test.body);
+    if tt == NodeType::E2eTest { test.add_test_kind("e2e"); }
+    else if tt == NodeType::IntegrationTest { test.add_test_kind("integration"); }
+    else { test.add_test_kind("unit"); }
         Ok(test)
     }
     pub fn format_function_call<G: Graph>(
@@ -914,7 +909,7 @@ impl Lang {
         trace!("format_integration_test");
         let mut nd = NodeData::in_file(file);
         let mut raw_name = String::new();
-        let mut tt = NodeType::UnitTest;
+    let tt: NodeType;
         Self::loop_captures(q, &m, code, |body, node, o| {
             if o == INTEGRATION_TEST || o == E2E_TEST {
                 nd.body = body.clone();
@@ -926,25 +921,10 @@ impl Lang {
             Ok(())
         })?;
         nd.name = raw_name.clone();
-        let lower = raw_name.to_lowercase();
-        if lower.contains("e2e") {
-            tt = NodeType::E2eTest;
-        } else if lower.contains("integration") || lower.contains(" api") || lower.contains("api ") {
-            tt = NodeType::IntegrationTest;
-        }
-        if tt == NodeType::UnitTest {
-            if nd.body.contains("page.") || nd.body.contains("cy.") || nd.body.contains("browser.") {
-                tt = NodeType::E2eTest;
-            } else {
-                let fetches = nd.body.matches("fetch(").count();
-                if fetches > 1 || nd.body.contains("axios(") {
-                    tt = NodeType::IntegrationTest;
-                }
-            }
-        }
-        if tt == NodeType::E2eTest { nd.meta.insert("test_kind".into(), "e2e".into()); }
-        else if tt == NodeType::IntegrationTest { nd.meta.insert("test_kind".into(), "integration".into()); }
-        else { nd.meta.insert("test_kind".into(), "unit".into()); }
+    tt = self.lang.classify_test_kind(file, &nd.name, &nd.body);
+        if tt == NodeType::E2eTest { nd.add_test_kind("e2e"); }
+        else if tt == NodeType::IntegrationTest { nd.add_test_kind("integration"); }
+        else { nd.add_test_kind("unit"); }
         Ok((nd, tt))
     }
     pub fn format_integration_test_call<G: Graph>(

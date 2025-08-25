@@ -289,7 +289,7 @@ impl Lang {
         while let Some(m) = matches.next() {
             let (mut nd, tt) = self.format_integration_test(&m, code, file, &q)?;
             if tt != NodeType::E2eTest {
-                nd.meta.insert("test_kind".into(), "e2e".into());
+                nd.add_test_kind("e2e");
             }
             res.push(nd);
         }

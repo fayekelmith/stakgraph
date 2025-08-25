@@ -52,6 +52,7 @@ pub trait Stack {
     fn q(&self, q: &str, nt: &NodeType) -> Query;
     // use different parser for pkg files
     fn parse(&self, code: &str, nt: &NodeType) -> Result<Tree>;
+    fn classify_test_kind(&self, _file: &str, _name: &str, _body: &str) -> NodeType { NodeType::UnitTest }
     fn module_query(&self) -> Option<String> {
         None
     }

@@ -14,7 +14,7 @@ async fn clear_neo4j() {
 #[cfg(feature = "neo4j")]
 async fn test_graph_consistency() {
     use ast::lang::graphs::{BTreeMapGraph, EdgeType};
-    use ast::lang::Graph;
+    use ast::lang::{Edge, Graph};
     use ast::repo::Repo;
     use tracing::info;
 

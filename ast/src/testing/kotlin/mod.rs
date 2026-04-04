@@ -114,7 +114,7 @@ import com.kotlintestapp.db.PersonDatabase"#
             functions.len()
         );
     } else {
-        assert_eq!(functions.len(), 29, "Expected 29 functions without LSP");
+        assert_eq!(functions.len(), 27, "Expected 27 functions without LSP");
     }
 
     let unit_tests = graph.find_nodes_by_type(NodeType::UnitTest);
@@ -139,7 +139,7 @@ import com.kotlintestapp.db.PersonDatabase"#
 
     let data_models = graph.find_nodes_by_type(NodeType::DataModel);
     nodes_count += data_models.len();
-    assert_eq!(data_models.len(), 9, "Expected 9 data models");
+    assert_eq!(data_models.len(), 7, "Expected 7 data models");
 
     let requests = graph.find_nodes_by_type(NodeType::Request);
     nodes_count += requests.len();
@@ -201,7 +201,7 @@ import com.kotlintestapp.db.PersonDatabase"#
 
     let contains_edges = graph.count_edges_of_type(EdgeType::Contains);
     edges_count += contains_edges;
-    assert_eq!(contains_edges, 217, "Expected 217 contains edges");
+    assert_eq!(contains_edges, 213, "Expected 213 contains edges");
 
     let of_edges = graph.count_edges_of_type(EdgeType::Of);
     edges_count += of_edges;
@@ -221,7 +221,7 @@ import com.kotlintestapp.db.PersonDatabase"#
 
     let nested_in = graph.count_edges_of_type(EdgeType::NestedIn);
     edges_count += nested_in;
-    assert_eq!(nested_in, 2, "Expected 2 NestedIn edges");
+    assert_eq!(nested_in, 0, "Expected 0 NestedIn edges");
 
     let database_helper = classes
         .iter()

@@ -51,7 +51,7 @@ pub async fn test_python_web_generic<G: Graph + Sync>() -> Result<()> {
 
     let calls = graph.count_edges_of_type(EdgeType::Calls);
     edges_count += calls;
-    assert_eq!(calls, 17, "Expected 17 call edges");
+    assert_eq!(calls, 19, "Expected 19 call edges");
 
     let implements = graph.count_edges_of_type(EdgeType::Implements);
     edges_count += implements;

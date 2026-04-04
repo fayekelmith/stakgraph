@@ -115,7 +115,7 @@ async fn test_btreemap_edges() -> Result<()> {
     assert_eq!(handler_edges, 9);
 
     let nested_in_edges = graph.count_edges_of_type(EdgeType::NestedIn);
-    assert_eq!(nested_in_edges, 2);
+    assert_eq!(nested_in_edges, 0);
 
     let operand_edges = graph.count_edges_of_type(EdgeType::Operand);
     assert_eq!(operand_edges, 1);

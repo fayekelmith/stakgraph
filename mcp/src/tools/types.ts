@@ -12,6 +12,20 @@ export interface ContextResult {
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
+    agent?: {
+      inputTokens: number;
+      cacheReadTokens: number;
+      cacheWriteTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
+    contextSummary?: {
+      inputTokens: number;
+      cacheReadTokens: number;
+      cacheWriteTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
     model?: string;
     provider?: string;
   };

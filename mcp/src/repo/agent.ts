@@ -38,8 +38,15 @@ import {
   sessionExists,
   SessionConfig,
   StepMeta,
+  addTokenUsage,
+  emptyTokenUsage,
+  normalizeTokenUsage,
 } from "./session.js";
 import { McpServer, getMcpTools } from "./mcpServers.js";
+import {
+  loadCompiledSessionMessages,
+  updateSessionContext,
+} from "./context.js";
 
 function SYSTEM_PROMPT_END(qs: boolean) {
   const normalEnd = `CRITICAL: When you are ready to provide your final answer, output your complete response followed by [END_OF_ANSWER] on a new line. Don't start your answer with preamble like "Ok! I have all the information I need. Let me create a plan...". Just start with your answer.
@@ -205,6 +212,8 @@ export interface GetContextOptions {
   source?: string;
   // Write messages to the session but don't load prior messages as context
   isolatedContext?: boolean;
+  // Use compact compiled session context instead of full transcript replay
+  contextMode?: "full" | "compiled";
 }
 
 interface PreparedAgent {
@@ -330,13 +339,21 @@ Apply the guidance from each skill throughout your response.`;
   // Session handling (after instructions are fully assembled so we can persist them)
   let sessionId: string | undefined;
   let previousMessages: ModelMessage[] = [];
+  let sessionMessages: ModelMessage[] = [];
   let hasSystemTurn = false;
 
   if (inputSessionId) {
     if (sessionExists(inputSessionId)) {
       sessionId = inputSessionId;
       hasSystemTurn = loadSession(sessionId)[0]?.role === "system";
-      previousMessages = opts.isolatedContext ? [] : loadSessionMessages(sessionId);
+      sessionMessages = loadSessionMessages(sessionId);
+      if (opts.isolatedContext) {
+        previousMessages = [];
+      } else if (opts.contextMode === "compiled") {
+        previousMessages = loadCompiledSessionMessages(sessionId);
+      } else {
+        previousMessages = sessionMessages;
+      }
     } else {
       sessionId = createNewSession(inputSessionId, instructions, opts.source);
       hasSystemTurn = true;
@@ -351,7 +368,7 @@ Apply the guidance from each skill throughout your response.`;
   let cumInput = 0;
   let cumOutput = 0;
   const turnIndex =
-    previousMessages.filter((m) => m.role === "user").length +
+    sessionMessages.filter((m) => m.role === "user").length +
     (hasSystemTurn ? 2 : 1);
 
   const agent = new ToolLoopAgent({
@@ -451,6 +468,7 @@ export async function get_context(
     userMessage,
     startTime,
     stepMetas,
+    turnIndex,
     provenanceCollector,
   } = prepared;
   const { schema } = opts;
@@ -473,6 +491,8 @@ export async function get_context(
   }
 
   const { steps, totalUsage } = result;
+  const agentUsage = normalizeTokenUsage(totalUsage);
+  let contextSummaryUsage = emptyTokenUsage();
 
   const endTime = Date.now();
   const duration = endTime - startTime;
@@ -489,21 +509,21 @@ export async function get_context(
     if (provenanceCollector.entries.length > 0) {
       appendSearchProvenance(sessionId, provenanceCollector.entries);
     }
+    if (opts.contextMode === "compiled") {
+      contextSummaryUsage = await updateSessionContext(sessionId, newMessages, model, turnIndex) ?? emptyTokenUsage();
+    }
+    const combinedUsage = addTokenUsage(agentUsage, contextSummaryUsage);
     await appendSessionEnd(sessionId, {
       end_time: new Date().toISOString(),
       model: modelId,
       provider,
       duration_ms: duration,
       status: "success",
-      token_usage: {
-        input: totalUsage.inputTokenDetails?.noCacheTokens || totalUsage.inputTokens || 0,
-        cache_read: totalUsage.inputTokenDetails?.cacheReadTokens || 0,
-        cache_write: totalUsage.inputTokenDetails?.cacheWriteTokens || 0,
-        output: totalUsage.outputTokens || 0,
-        total: totalUsage.totalTokens || 0,
-      },
+      token_usage: combinedUsage,
     });
   }
+
+  const combinedUsage = addTokenUsage(agentUsage, contextSummaryUsage);
 
   const final = extractFinalAnswer(steps);
 
@@ -528,9 +548,23 @@ export async function get_context(
     tool_use: final.tool_use,
     content: finalAnswer,
     usage: {
-      inputTokens: totalUsage.inputTokens || 0,
-      outputTokens: totalUsage.outputTokens || 0,
-      totalTokens: totalUsage.totalTokens || 0,
+      inputTokens: combinedUsage.input,
+      outputTokens: combinedUsage.output,
+      totalTokens: combinedUsage.total,
+      agent: {
+        inputTokens: agentUsage.input,
+        cacheReadTokens: agentUsage.cache_read,
+        cacheWriteTokens: agentUsage.cache_write,
+        outputTokens: agentUsage.output,
+        totalTokens: agentUsage.total,
+      },
+      contextSummary: {
+        inputTokens: contextSummaryUsage.input,
+        cacheReadTokens: contextSummaryUsage.cache_read,
+        cacheWriteTokens: contextSummaryUsage.cache_write,
+        outputTokens: contextSummaryUsage.output,
+        totalTokens: contextSummaryUsage.total,
+      },
       model: modelId,
       provider,
     },
@@ -581,19 +615,19 @@ export async function stream_context(
         if (provenanceCollector.entries.length > 0) {
           appendSearchProvenance(sessionId, provenanceCollector.entries);
         }
+        const agentUsage = normalizeTokenUsage(usage);
+        let contextSummaryUsage = emptyTokenUsage();
+        if (opts.contextMode === "compiled") {
+          contextSummaryUsage = await updateSessionContext(sessionId, newMessages, prepared.model, prepared.turnIndex) ?? emptyTokenUsage();
+        }
+        const combinedUsage = addTokenUsage(agentUsage, contextSummaryUsage);
         await appendSessionEnd(sessionId, {
           end_time: new Date().toISOString(),
           model: modelId,
           provider,
           duration_ms: duration,
           status: "success",
-          token_usage: {
-            input: usage?.inputTokenDetails?.noCacheTokens || usage?.inputTokens || 0,
-            cache_read: usage?.inputTokenDetails?.cacheReadTokens || 0,
-            cache_write: usage?.inputTokenDetails?.cacheWriteTokens || 0,
-            output: usage?.outputTokens || 0,
-            total: usage?.totalTokens || 0,
-          },
+          token_usage: combinedUsage,
         });
       } catch (e) {
         console.error("[stream_context] Failed to finalize session:", e);

@@ -51,6 +51,56 @@ export interface SearchProvenanceEntry {
   };
 }
 
+export type SessionContextRefKind =
+  | "file"
+  | "function"
+  | "endpoint"
+  | "env"
+  | "command"
+  | "url"
+  | "ref_id"
+  | "other";
+
+export interface SessionContextRef {
+  kind: SessionContextRefKind;
+  value: string;
+  reason: string;
+}
+
+export interface SessionContextState {
+  summary: string;
+  goals: string[];
+  decisions: string[];
+  importantRefs: SessionContextRef[];
+  checked: string[];
+  openQuestions: string[];
+  nextSteps: string[];
+  warnings: string[];
+  updated_at: string;
+}
+
+export interface ContextTimelineDiff {
+  added: Record<string, unknown[]>;
+  removed: Record<string, unknown[]>;
+}
+
+export interface ContextTimelineEntry {
+  turn: number;
+  timestamp: string;
+  before: SessionContextState;
+  after: SessionContextState;
+  usage?: {
+    input: number;
+    cache_read: number;
+    cache_write: number;
+    output: number;
+    total: number;
+  };
+  diff?: ContextTimelineDiff;
+  changedSummary?: boolean;
+  newMessagesPreview?: string;
+}
+
 export interface ProductionRun {
   id: string;
   source: string;
@@ -69,6 +119,8 @@ export interface ProductionRun {
   answer_preview: string;
   step_meta?: StepMeta[];
   search_provenance?: SearchProvenanceEntry[];
+  context_state?: SessionContextState;
+  context_timeline?: ContextTimelineEntry[];
   annotations?: Annotation[];
   trace?: unknown;
 }

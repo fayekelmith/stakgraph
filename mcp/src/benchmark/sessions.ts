@@ -5,6 +5,8 @@ import { db } from "../graph/neo4j.js";
 import {
   loadStepMeta,
   loadSearchProvenance,
+  loadCompiledContextState,
+  loadContextTimeline,
   loadAnnotations,
   appendAnnotation,
   type Annotation,
@@ -223,7 +225,8 @@ export async function list_sessions(_req: Request, res: Response) {
             !file.endsWith(".jsonl") ||
             file.endsWith(".meta.jsonl") ||
             file.endsWith(".provenance.jsonl") ||
-            file.endsWith(".annotations.jsonl")
+            file.endsWith(".annotations.jsonl") ||
+            file.endsWith(".context.timeline.jsonl")
           )
             continue;
           const id = file.replace(/\.jsonl$/, "");
@@ -250,7 +253,8 @@ export async function list_sessions(_req: Request, res: Response) {
       f.endsWith(".jsonl") &&
       !f.endsWith(".meta.jsonl") &&
       !f.endsWith(".provenance.jsonl") &&
-      !f.endsWith(".annotations.jsonl"),
+        !f.endsWith(".annotations.jsonl") &&
+        !f.endsWith(".context.timeline.jsonl"),
   );
 
   const runs = files.map((file) => buildOrphanRun(dir, file));
@@ -293,6 +297,8 @@ export async function get_session(req: Request, res: Response) {
   const step_meta = loadStepMeta(id);
   const search_provenance = loadSearchProvenance(id);
   const annotations = loadAnnotations(id);
+  const context_state = loadCompiledContextState(id);
+  const context_timeline = loadContextTimeline(id);
 
   if (db) {
     try {
@@ -325,6 +331,8 @@ export async function get_session(req: Request, res: Response) {
           answer_preview: answerPreview,
           step_meta,
           search_provenance,
+          context_state,
+          context_timeline,
           annotations,
           trace,
         });
@@ -359,6 +367,8 @@ export async function get_session(req: Request, res: Response) {
     answer_preview: answerPreview,
     step_meta,
     search_provenance,
+    context_state,
+    context_timeline,
     annotations,
     trace,
   });
